@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <stdexcept> // для throw std::out_of_range
 #include <iterator>
+#include <cstdlib>
 #include "array_ptr.h"
 
 
@@ -39,7 +40,7 @@ public:
 
 
 	// Создаёт вектор из size элементов, инициализированных значением по умолчанию
-	explicit SimpleVector(size_t size) : size_(size), capacity_(size) {
+	explicit SimpleVector(size_t size) : size_(size), capacity_(size), simple_vector_(size) {
 		ArrayPtr<Type> new_data(size);
 		simple_vector_.swap(new_data);
 		for (size_t i = 0; i < size_; ++i) {
@@ -48,7 +49,7 @@ public:
 	}
 
 	// Создаёт вектор из size элементов, инициализированных значением value
-	SimpleVector(size_t size, const Type& value) : size_(size), capacity_(size) {
+	SimpleVector(size_t size, const Type& value) : size_(size), capacity_(size), simple_vector_(size) {
 		ArrayPtr<Type> new_data(size);
 		simple_vector_.swap(new_data);
 		for (size_t i = 0; i < size_; ++i) {
@@ -64,7 +65,7 @@ public:
 	}
 
 	// Создаёт вектор из std::initializer_list
-	SimpleVector(std::initializer_list<Type> init) : size_(init.size()), capacity_(init.size()) {
+	SimpleVector(std::initializer_list<Type> init) : size_(init.size()), capacity_(init.size()), simple_vector_(init.size()) {
 		ArrayPtr<Type> new_data(size_);
 		simple_vector_.swap(new_data);
 		size_t i = 0;
@@ -74,7 +75,7 @@ public:
 	}
 
 	// конструктор копирования по конустантной ссылке 
-	SimpleVector(const SimpleVector& other) : size_(other.GetSize()), capacity_(other.GetCapacity()) {
+	SimpleVector(const SimpleVector& other) : size_(other.GetSize()), capacity_(other.GetCapacity()), simple_vector_(other.GetSize()) {
 		ArrayPtr<Type> new_data(size_);
 		std::copy(other.begin(), other.end(), &new_data[0]); // Можно ли написать std::copy(other.begin(), other.end(), new_data.Get());?
 		simple_vector_.swap(new_data);
@@ -82,7 +83,7 @@ public:
 	}
 
 	// аналог конструктора копирования с использованием rvalue
-	SimpleVector(SimpleVector&& other) : size_(other.GetSize()), capacity_(other.GetCapacity()) {
+	SimpleVector(SimpleVector&& other) : size_(other.GetSize()), capacity_(other.GetCapacity()), simple_vector_(other.GetSize()) {
 		ArrayPtr<Type> new_data(size_);
 
 		std::move(std::make_move_iterator(other.begin()), std::make_move_iterator(other.end()), new_data.Get());
@@ -155,8 +156,8 @@ public:
 	// Если перед вставкой значения вектор был заполнен полностью,
 	// вместимость вектора должна увеличиться вдвое, а для вектора вместимостью 0 стать равной 1
 	Iterator Insert(ConstIterator pos, const Type& value) {
-
-		size_t new_pos = pos - simple_vector_.Get(); // указывает на позицию куда надо вставить элемент
+		assert(begin() <= pos && pos <= end());
+		size_t new_pos = std::abs(pos - simple_vector_.Get()); // указывает на позицию куда надо вставить элемент
 
 		if (size_ == capacity_) {
 			size_t new_capacity_ = (capacity_ == 0 ? 1 : capacity_ * 2);
@@ -179,8 +180,8 @@ public:
 
 	// аналог insert для rvalue ссылки 
 	Iterator Insert(ConstIterator pos, Type&& value) {
-
-		size_t new_pos = pos - simple_vector_.Get(); // указывает на позицию куда надо вставить элемент
+		assert(begin() <= pos && pos <= end());
+		size_t new_pos = std::abs(pos - simple_vector_.Get()); // указывает на позицию куда надо вставить элемент
 
 		if (size_ == capacity_) {
 			size_t new_capacity_ = (capacity_ == 0 ? 1 : capacity_ * 2);
@@ -205,9 +206,8 @@ public:
 
 	// "Удаляет" последний элемент вектора. Вектор не должен быть пустым
 	void PopBack() noexcept {
-		if (size_ > 0) {
-			--size_;
-		}
+		assert(size_ != 0);
+		--size_;
 	}
 
 	// Удаляет элемент вектора в указанной позиции
@@ -244,11 +244,13 @@ public:
 
 	// Возвращает ссылку на элемент с индексом index
 	Type& operator[](size_t index) noexcept {
+		assert(index < size_);
 		return simple_vector_[index];
 	}
 
 	// Возвращает константную ссылку на элемент с индексом index
 	const Type& operator[](size_t index) const noexcept {
+		assert(index < size_);
 		return simple_vector_[index];
 	}
 
